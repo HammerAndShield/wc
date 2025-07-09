@@ -2,50 +2,62 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 func main() {
 
 	byteCountFlag := flag.Bool("c", false, "Count the number of bytes in the file.")
+	lineCountFlag := flag.Bool("l", false, "Count the number of lines in the file.")
+	wordCountFlag := flag.Bool("w", false, "Count the numbers of words in the file")
 	flag.Parse()
 
 	if len(flag.Args()) == 0 {
-		println("No input file provided. Please use the -h for the help menu.")
+		println("No input file provided. Please use -h for the help menu.")
 		return
 	}
 	inputFile := flag.Args()[0]
 
-	if *byteCountFlag {
+	if *byteCountFlag || *lineCountFlag || *wordCountFlag {
 		file, err := os.Open(inputFile)
 		if err != nil {
 			log.Fatalf("Error reading file: %v", err)
 		}
 
-		reader := bufio.NewReader(file)
-		buffer := make([]byte, 4096)
-		byteCount := 0
-		for {
-			n, err := reader.Read(buffer)
+		scanner := bufio.NewScanner(file)
+
+		lineCount := 0
+		wordCount := 0
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			lineCount++
+			wordCount += len(strings.Fields(line))
+		}
+
+		res := ""
+		if *byteCountFlag {
+			info, err := file.Stat()
 			if err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				log.Fatalf("Error reading file: %v", err)
+				log.Fatalf("Error getting file info: %w", err)
 			}
-			byteCount += n
+			byteCount := info.Size()
+			res += fmt.Sprintf("%d ", byteCount)
 		}
-
-		if err != nil {
-			log.Fatalf("Error reading file: %v", err)
+		if *lineCountFlag {
+			res += fmt.Sprintf("%d ", lineCount)
 		}
+		if *wordCountFlag {
+			res += fmt.Sprintf("%d ", wordCount)
+		}
+		res += filepath.Base(file.Name())
 
-		fmt.Printf("%d %s\n", byteCount, inputFile)
+		print(res)
 	} else {
 		println("No flags were provided. Please use the -h for the help menu.")
 	}
