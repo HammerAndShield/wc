@@ -6,42 +6,73 @@ struct Main: AsyncParsableCommand {
     @Flag(name: .customShort("c"), help: "Read the byte count of the file.")
     var countBytes: Bool = false
 
+    @Flag(name: .customShort("l"), help: "Read the number of lines in the file.")
+    var countLines: Bool = false
+
+    @Flag(name: .customShort("w"), help: "Count the number of words in the file.")
+    var countWords: Bool = false
+
+    @Flag(name: .customShort("p"), help: "Print the time it took to process the file.")
+    var trackTime: Bool = false
+
     @Argument(
         help: "File to be read",
         transform: { URL(filePath: $0) } 
     )
     var fileName: URL
 
+    var noArgs: Bool {
+        !countBytes && !countLines && !countWords
+    }
+
     mutating func run() async {
-        if countBytes {
-            do {
-                let start = Date()
-                let fileHandle = try FileHandle(forReadingFrom: fileName)
-                defer { try? fileHandle.close() }
+        let start: Date = Date()
 
-                let chunkSize = 4096
-                var totalBytes = 0
-                while true {
-                    let chunk = try fileHandle.read(upToCount: chunkSize)
-                    guard let chunk = chunk else {
-                        break
-                    }
-                    totalBytes += chunk.count
-                }
+        do {
+            let fileHandle = try FileHandle(forReadingFrom: fileName)
+            defer { try? fileHandle.close() }
 
-                // var totalBytes = 0
-                // for try await _ in fileHandle.bytes {
-                //     totalBytes += 1
-                // }
+            // let chunkSize = 4096
+            // var totalBytes = 0
+            // while true {
+            //     let chunk = try fileHandle.read(upToCount: chunkSize)
+            //     guard let chunk = chunk else {
+            //         break
+            //     }
+            //     totalBytes += chunk.count
+            // }
 
-                let processingTime = Date().timeIntervalSince(start)
-                print("\(totalBytes) \(fileName.lastPathComponent)")
-                print("processing time: \(processingTime * 1000) ms")
-            } catch {
-                fatalError("There was an error processing your file: \(error.localizedDescription)")
+            var totalLines = 0
+            var totalWords = 0
+            for try await line in fileHandle.bytes.lines {
+                totalLines += 1
+
+                let words = line.components(separatedBy: .whitespacesAndNewlines)
+                    .reduce(0) { $0 + ($1.isEmpty ? 0 : 1) }
+                totalWords += words
             }
-        } else {
-            print("You must specify a command line flag. Check -h for help.")
+
+            var res = "  "
+            if countLines || noArgs {
+                res += "\(totalLines)  "
+            }
+            if countWords || noArgs {
+                res += "\(totalWords)  "
+            }
+            if countBytes || noArgs {
+                let fileAttributes = try FileManager.default.attributesOfItem(atPath: fileName.path())
+                let totalBytes = fileAttributes[.size] as? Int64 ?? 0
+                res += "\(totalBytes)  "
+            }
+            res += fileName.lastPathComponent
+            print(res)
+        } catch {
+            fatalError("There was an error processing your file: \(error.localizedDescription)")
+        }
+
+        if trackTime {
+            let interval = Date().timeIntervalSince(start)
+            print("Processing took \(interval * 1000)ms")
         }
     }
 }

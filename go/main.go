@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -19,6 +20,7 @@ func main() {
 	lineCountFlag := flag.Bool("l", false, "Count the number of lines in the file.")
 	wordCountFlag := flag.Bool("w", false, "Count the numbers of words in the file")
 	charCountFlag := flag.Bool("m", false, "The number of characters in the file")
+	processingTimeFlag := flag.Bool("p", false, "The processing time will be displayed")
 	flag.Parse()
 
 	if len(flag.Args()) == 0 {
@@ -26,6 +28,8 @@ func main() {
 		return
 	}
 	inputFile := flag.Args()[0]
+
+	now := time.Now()
 
 	if *charCountFlag {
 		count, err := countRunes(inputFile)
@@ -39,6 +43,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error reading file: %v", err)
 		}
+		defer file.Close()
+
+		noFlags := !*byteCountFlag && !*lineCountFlag && !*wordCountFlag
 
 		scanner := bufio.NewScanner(file)
 
@@ -56,26 +63,29 @@ func main() {
 		}
 
 		res := "  "
-		if *byteCountFlag {
+		if *lineCountFlag || noFlags {
+			res += fmt.Sprintf("%d  ", lineCount)
+		}
+		if *wordCountFlag || noFlags {
+			res += fmt.Sprintf("%d  ", wordCount)
+		}
+		if *byteCountFlag || noFlags {
 			info, err := file.Stat()
 			if err != nil {
 				log.Fatalf("Error getting file info: %v", err)
 			}
 			byteCount := info.Size()
-			res += fmt.Sprintf("%d ", byteCount)
+			res += fmt.Sprintf("%d  ", byteCount)
 		}
-		if *lineCountFlag {
-			res += fmt.Sprintf("%d ", lineCount)
-		}
-		if *wordCountFlag {
-			res += fmt.Sprintf("%d ", wordCount)
-		}
-		if *charCountFlag {
-			res += fmt.Sprintf("%d ", charCount)
-		}
+
 		res += filepath.Base(file.Name())
 
-		print(res)
+		println(res)
+	}
+
+	if *processingTimeFlag {
+		p := time.Since(now)
+		fmt.Printf("  Processing took %dms", p.Milliseconds())
 	}
 }
 
