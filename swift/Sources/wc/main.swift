@@ -12,6 +12,9 @@ struct Main: AsyncParsableCommand {
     @Flag(name: .customShort("w"), help: "Count the number of words in the file.")
     var countWords: Bool = false
 
+    @Flag(name: .customShort("m"), help: "Count the number of characters in the file.")
+    var countChars: Bool = false
+
     @Flag(name: .customShort("p"), help: "Print the time it took to process the file.")
     var trackTime: Bool = false
 
@@ -22,7 +25,7 @@ struct Main: AsyncParsableCommand {
     var fileName: URL
 
     var noArgs: Bool {
-        !countBytes && !countLines && !countWords
+        !countBytes && !countLines && !countWords && !countChars
     }
 
     mutating func run() async {
@@ -44,8 +47,10 @@ struct Main: AsyncParsableCommand {
 
             var totalLines = 0
             var totalWords = 0
+            var totalChars = 0
             for try await line in fileHandle.bytes.lines {
                 totalLines += 1
+                totalChars += line.count
 
                 let words = line.components(separatedBy: .whitespacesAndNewlines)
                     .reduce(0) { $0 + ($1.isEmpty ? 0 : 1) }
@@ -58,6 +63,9 @@ struct Main: AsyncParsableCommand {
             }
             if countWords || noArgs {
                 res += "\(totalWords)  "
+            }
+            if countChars {
+                res += "\(totalChars)  "
             }
             if countBytes || noArgs {
                 let fileAttributes = try FileManager.default.attributesOfItem(atPath: fileName.path())
